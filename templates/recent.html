@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recent Events · Fraud Guard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-5xl mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">Recent Events</h1>
+    <div class="overflow-x-auto bg-white rounded-2xl shadow">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="text-left p-3">Created (UTC)</th>
+            <th class="text-left p-3">Stripe ID</th>
+            <th class="text-left p-3">Type</th>
+            <th class="text-left p-3">Amount</th>
+            <th class="text-left p-3">Currency</th>
+            <th class="text-left p-3">Risk</th>
+            <th class="text-left p-3">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in events %}
+          <tr class="border-t">
+            <td class="p-3">{{ e.created_at }}</td>
+            <td class="p-3">{{ e.stripe_id }}</td>
+            <td class="p-3">{{ e.event_type }}</td>
+            <td class="p-3">{{ e.amount or 0 }}</td>
+            <td class="p-3">{{ e.currency }}</td>
+            <td class="p-3 font-semibold">
+              {% if e.risk_score >= 0.8 %}<span class="text-red-600">{{ "%.2f"|format(e.risk_score) }}</span>
+              {% elif e.risk_score >= 0.5 %}<span class="text-yellow-600">{{ "%.2f"|format(e.risk_score) }}</span>
+              {% else %}<span class="text-green-600">{{ "%.2f"|format(e.risk_score) }}</span>{% endif %}
+            </td>
+            <td class="p-3">{{ e.reason }}</td>
+          </tr>
+          {% endfor %}
+          {% if not events %}
+          <tr><td class="p-6 text-gray-500" colspan="7">No events yet—send a test from the Stripe CLI or Dashboard.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-4 text-sm text-gray-500"><a class="underline" href="/">← Back</a></p>
+  </div>
+</body>
+</html>

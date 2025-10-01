@@ -1,12 +1,13 @@
 import os, json, sqlite3
 from datetime import datetime
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, render_template
 import stripe
+
 from rules_engine import score_rules
 from scorer import ml_score
 
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")           # set later in env
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")  # set later in env
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 if STRIPE_API_KEY:
     stripe.api_key = STRIPE_API_KEY
@@ -50,14 +51,39 @@ def save_event(stripe_id, event_type, payload, email, ip, amount, currency, risk
     conn.commit()
     conn.close()
 
+# ---------- UI ROUTES ----------
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"app": "fraud-guard", "status": "running"})
+    base_url = request.url_root.rstrip("/")
+    mode = "Test" if (os.getenv("STRIPE_API_KEY", "").startswith("sk_test_")) else "Live"
+    webhook_ok = bool(os.getenv("STRIPE_WEBHOOK_SECRET"))
+    return render_template(
+        "index.html",
+        status="running",
+        mode=mode,
+        webhook_ok=webhook_ok,
+        base_url=base_url,
+    )
+
+@app.route("/recent", methods=["GET"])
+def recent():
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT created_at, stripe_id, event_type, amount, currency, risk_score, reason
+        FROM events
+        ORDER BY id DESC
+        LIMIT 50
+    """).fetchall()
+    conn.close()
+    events = [dict(r) for r in rows]
+    return render_template("recent.html", events=events)
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
 
+# ---------- WEBHOOK ----------
 @app.route("/webhook", methods=["POST"])
 def webhook():
     payload = request.data
@@ -115,6 +141,6 @@ def webhook():
         print(f"[INFO]  LOW RISK {stripe_id} score={combined:.2f}")
 
     return jsonify({"received": True})
-    
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
